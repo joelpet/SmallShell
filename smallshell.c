@@ -138,6 +138,9 @@ void sigchld_handler(
      * case. When a bg process signals SIGCHLD we have to make sure that it has
      * really changed state, that is, waitpid(2) returns the process ID of the
      * child.
+     *
+     * Summary: The following conditional code block will only be executed when
+     * a background child process has terminated.
      */
     if (child_pid == siginfo->si_pid) {
         print_exit_msg(siginfo->si_pid);
@@ -149,47 +152,31 @@ void sigchld_handler(
  * main handles the shell program flow and returns 0 on exit.
  */
 int main () {
-
-    /* keep track of child process while forking */
-    pid_t child_pid;
-
-    /* helps us time processes */
-    long long timediff;
-
-    /* foreground or background branch? */
-    int FOREGROUND;
-
-    /* user-specified command */
-    char command[MAX_COMMAND_SIZE];
+    pid_t child_pid;    /* Keep track of child process while forking. */
+    long long timediff; /* Helps us time processes. */
+    int FOREGROUND;     /* Foreground or background process branch? */
+    char command[MAX_COMMAND_SIZE];         /* User-specified command. */
+    char * command_args[MAX_COMMAND_SIZE];  /* Command arguments. */
+    char * pchr;            /* char pointer used for string parsing. */
+    int param_index = 0;    /* Holds which parameter we're at while parsing,
+                               and after parsing is done equals the number of
+                               parameters. */
+    int child_status;   /* Keep track of child process status. */
+    struct timeval time1,time2;             /* Structs used to track time. */
+    int return_value;   /* Temp variable to save return values of system calls. */
+    char * return_value_ptr; /* Temp variable to save return value from fgets. */
     
-    /* command arguments */
-    char * command_args[MAX_COMMAND_SIZE];
-
-    /* char pointer used for string parsing */
-    char * pchr;
-        
-    /* variable to keep track of which parameter we're at while parsing */
-    int param_index = 0;
-
-    /* keep track of child process status */
-    int child_status;
-
-    /* structs used to track time */
-    struct timeval time1,time2;
-
-    /* temporary variable to track return values of functions */
-    int return_value;
-                
-    /* temporary variable to track return values of functions */
-    char * return_value_ptr;
-    
-    /* ignore sig-interrupt (Ctrl-C) in the parent process */
+    /* 
+     * Ignore sig-interrupt (Ctrl-C) in the parent (this) process.
+     */
     signal(SIGINT,SIG_IGN);
     
-    if (SIGNALDETECTION) {
-        /* install handler for SIGCHLD */
-        register_sighandler(SIGCHLD, sigchld_handler);
-    }
+    /* 
+     * Install handler for SIGCHLD if needed.
+     */
+#if SIGNALDETECTION
+    register_sighandler(SIGCHLD, sigchld_handler);
+#endif
 
     /* main program loop */
     for (;;) {
@@ -303,9 +290,7 @@ int main () {
             /* calculate time difference in microseconds */
             timediff = ((time2.tv_sec*1e6+time2.tv_usec)-(time1.tv_sec*1e6+time1.tv_usec));
 
-            /* do not print if SIGNALDETECTION is set, would print two messages */
-            if (!SIGNALDETECTION)
-                print_exit_msg(child_pid);
+            print_exit_msg(child_pid);
 
             printf("==> execution time: %lf seconds\n",timediff/1e6);
 
@@ -330,22 +315,25 @@ int main () {
 
         }
 
-        /* in each iteration of the main program loop, we check if any programs
-         * finished execution by polling, if SIGNALDETECTION == 0 */
-        if (SIGNALDETECTION == 0) {
-            for (;;) {
-                /* check if any process has terminated, without hanging */
-                child_pid = waitpid(-1,&child_status,WNOHANG);            
+        /*
+         * Perform polling of child process state changes to detect if any such
+         * has terminated. Only performed if signal detection is not activated.
+         */
+#if !SIGNALDETECTION
+        for (;;) {
+            /* Asynchronously check if any process has terminated. */
+            child_pid = waitpid(-1,&child_status,WNOHANG);            
 
-                /* if nothing has changed, or if error, break the loop */
-                if (child_pid == 0 || child_pid == -1) {
-                    break;
-                }
-
-                /* here, a process has terminated */
-                print_exit_msg(child_pid);
+            /* if nothing has changed, or if error, break the loop */
+            if (child_pid == 0 || child_pid == -1) {
+                break;
             }
+
+            /* here, a process has terminated */
+            print_exit_msg(child_pid);
         }
+#endif
+
     }
     return 0;
 }
