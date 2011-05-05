@@ -5,13 +5,14 @@
  **/
 
 #include <errno.h>
-#include <unistd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <string.h>
+#include <unistd.h>
 
 /* if this is non-zero, signals will be used to detect terminated
  * background-processes. */
@@ -50,7 +51,7 @@ void signal_handler(int signal_code) {
 }
 
 /* main function, handles main program flow */
-int main (int argc, char ** argv) {
+int main () {
 
     /* helps us time processes */
     long long timediff;
