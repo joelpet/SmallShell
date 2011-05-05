@@ -77,27 +77,58 @@
  */
 #define MAX_NO_ARGS 6
 
-/* registers a signal handler */
-void register_sighandler(int signal_code, void (*handler)(int, siginfo_t*, void*)) {
-    int return_value;
-    struct sigaction signal_parameters;
-    signal_parameters.sa_sigaction = handler; 
-    sigemptyset( &signal_parameters.sa_mask );
-    signal_parameters.sa_flags = SA_SIGINFO;
-    return_value = sigaction(signal_code, &signal_parameters, (void *) NULL);
+/* register_sighandler
+ *
+ * register_sighandler registers a signal handler, pointed out by handler, for
+ * the given signal_code.
+ */
+void register_sighandler(
+    int signal_code,        /* The signal code to register a handler for. */
+    void (*handler)(int, siginfo_t*, void*)) /* Function pointer to the handler. */
+{
+    int return_value;       /* Stores return value from system calls. */
+    struct sigaction act;   /* sigaction struct to be passed to sigaction(2). */
+
+    /*
+     * Set up the sigaction struct to use the given signal handler, no blocked
+     * signals and with the SA_SIGACTION flag to let signal handler take a
+     * siginfo_t pointer (among other arguments), instead of simply the signal
+     * code.
+     */
+    act.sa_sigaction = handler; 
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = SA_SIGINFO;
+    return_value = sigaction(signal_code, &act, (void *) NULL);
+
     if ( -1 == return_value ) {
         fprintf(stderr,"sigaction() failed\n");
         exit(1);
     }
 }
 
-void print_exit_msg(pid_t child_pid) {
+/* print_exit_msg
+ *
+ * print_exit_msg prints an exit message, which includes the terminated
+ * process' ID.
+ */
+void print_exit_msg(
+    pid_t child_pid)    /* ID of the terminated process. */
+{
     printf("==> %d - process terminated\n", (int)child_pid);
 }
 
-/* this function is called when SIGCHLD is received */
-void signal_handler(int signal_code, siginfo_t* siginfo, void* ucontext) {
-    int status;
+/* sigchld_handler
+ *
+ * sigchld_handler is installed as a signal handler for SIGCHLD. It tries to
+ * wait for the terminated process without blocking, to make sure we do not
+ * leave any zombie processes behind.
+ */
+void sigchld_handler(
+    int signal_code,    /* The signal code. */
+    siginfo_t* siginfo, /* A singinfo_t struct pointer with valuable info. */
+    void* ucontext)     /* See sigaction(2). */
+{
+    int status;         /* Status return value placeholder. */
     pid_t child_pid = waitpid(siginfo->si_pid, &status, WNOHANG);
 
     /*
@@ -113,7 +144,10 @@ void signal_handler(int signal_code, siginfo_t* siginfo, void* ucontext) {
     }
 }
 
-/* main function, handles main program flow */
+/* main 
+ *
+ * main handles the shell program flow and returns 0 on exit.
+ */
 int main () {
 
     /* keep track of child process while forking */
@@ -154,7 +188,7 @@ int main () {
     
     if (SIGNALDETECTION) {
         /* install handler for SIGCHLD */
-        register_sighandler(SIGCHLD, signal_handler);
+        register_sighandler(SIGCHLD, sigchld_handler);
     }
 
     /* main program loop */
