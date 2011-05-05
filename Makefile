@@ -37,7 +37,7 @@ run: smallshell
 	./$<
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(all_cflags) $< -o $@
 
 clean:
 	-rm -f *.o smallshell
