@@ -1,2 +1,4 @@
 smallshell
 *.o
+*.swo
+*.swp
