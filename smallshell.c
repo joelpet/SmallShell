@@ -24,34 +24,35 @@
 /* five plus one for the first parameter, the command itself */
 #define MAX_NO_ARGS 6
 
-/* keep track of child process while forking */
-pid_t child_pid;
-
 /* registers a signal handler */
-void register_sighandler(int signal_code, void (*handler)(int sig)) {
+void register_sighandler(int signal_code, void (*handler)(int, siginfo_t*, void*)) {
     int return_value;
     struct sigaction signal_parameters;
-    signal_parameters.sa_handler = handler; 
+    /*signal_parameters.sa_handler = handler; */
+    signal_parameters.sa_sigaction = handler; 
     sigemptyset( &signal_parameters.sa_mask );
-    signal_parameters.sa_flags = 0;
-    return_value = sigaction(signal_code, &signal_parameters, (void *) 0);
+    signal_parameters.sa_flags = SA_SIGINFO;
+    return_value = sigaction(signal_code, &signal_parameters, (void *) NULL);
     if ( -1 == return_value ) {
         fprintf(stderr,"sigaction() failed\n");
         exit(1);
     }
 }
 
-void print_exit_msg() {
-    printf("==> %d - process terminated\n",(int)child_pid);
+void print_exit_msg(pid_t child_pid) {
+    printf("==> %d - process terminated\n", (int)child_pid);
 }
 
 /* this function is called when SIGCHLD is received */
-void signal_handler(int signal_code) {
-    print_exit_msg();
+void signal_handler(int signal_code, siginfo_t* siginfo, void* ucontext) {
+    print_exit_msg(siginfo->si_pid);
 }
 
 /* main function, handles main program flow */
 int main () {
+
+    /* keep track of child process while forking */
+    pid_t child_pid;
 
     /* helps us time processes */
     long long timediff;
@@ -205,7 +206,7 @@ int main () {
 
             /* do not print if SIGNALDETECTION is set, would print two messages */
             if (!SIGNALDETECTION)
-                print_exit_msg();
+                print_exit_msg(child_pid);
 
             printf("==> execution time: %lf seconds\n",timediff/1e6);
 
@@ -243,7 +244,7 @@ int main () {
                 }
 
                 /* here, a process has terminated */
-                print_exit_msg();
+                print_exit_msg(child_pid);
             }
         }
     }
