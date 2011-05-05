@@ -80,6 +80,9 @@ int main () {
     /* temporary variable to track return values of functions */
     int return_value;
                 
+    /* temporary variable to track return values of functions */
+    char * return_value_ptr;
+    
     /* ignore sig-interrupt (Ctrl-C) in the parent process */
     signal(SIGINT,SIG_IGN);
     
@@ -92,7 +95,11 @@ int main () {
     for (;;) {
         
         /* get command string */
-        fgets(command,MAX_COMMAND_SIZE,stdin);
+        return_value_ptr = fgets(command,MAX_COMMAND_SIZE,stdin);
+
+        /* if EINTR, no nothing */
+        if (return_value_ptr == NULL && errno == EINTR)
+            continue;
 
         /* empty line (only newline), do nothing */
         if (strlen(command) == 1) 
@@ -232,7 +239,6 @@ int main () {
 
                 /* if nothing has changed, or if error, break the loop */
                 if (child_pid == 0 || child_pid == -1) {
-                    printf("** break\n");
                     break;
                 }
 
