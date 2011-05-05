@@ -1,8 +1,50 @@
-#define _POSIX_C_SOURCE 200112
+/*
+ *
+ * NAME:
+ *   smallshell - a simple shell
+ * 
+ * SYNTAX:
+ *   smallshell
+ *
+ * DESCRIPTION:
+ *   Smallshell reads commands from standard input to be executed, either as a
+ *   foreground or background process, until user quits by typing the command
+ *   `exit`.
+ *   
+ * EXAMPLES:
+ *   A shell interaction example, including external command invokations (echo,
+ *   pwd, ls) and built-in commands (cd, exit).
+ *
+ *   $ smallshell
+ *   echo Hello World!
+ *   ==> 24197 - spawned foreground process
+ *   Hello World!
+ *   ==> execution time: 0.001101 seconds
+ *   pwd
+ *   ==> 24198 - spawned foreground process
+ *   /home/joelpet/kth/kurser/opsys/lab2/SmallShell
+ *   ==> execution time: 0.001130 seconds
+ *   cd ..
+ *   ls
+ *   ==> 24201 - spawned foreground process
+ *   SmallShell
+ *   ==> execution time: 0.001894 seconds
+ *   exit
+ *
+ * NOTES:
+ *   This shell does not offer any fancy features, such as pipes. Also, the
+ *   maximum length of a command string is 70 characters, and the maximum
+ *   number of arguments is 5.
+ *
+ */
 
-/** 
- * Smallshell 2.51 for UNIX 
- **/
+/* smallshell
+ *
+ * This module contains the whole smallshell program, including main() and
+ * small functions for signal handling.
+ */
+
+#define _POSIX_C_SOURCE 200112
 
 #include <errno.h>
 #include <signal.h>
@@ -14,14 +56,25 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-/* if this is non-zero, signals will be used to detect terminated
- * background-processes. */
-#define SIGNALDETECTION 1
+/*
+ * The SIGNALDETECTION macro defines whether or not signals should be used for
+ * detecting terminated background processes; a non-zero value indicates signal
+ * detection should be used, and 0 makes the program poll changed status
+ * information instead (default).
+ */
+#ifndef SIGNALDETECTION
+#define SIGNALDETECTION 0
+#endif
 
-/* max line length 70, plus one for null terminator */
-#define MAX_COMMAND_SIZE 71
+/*
+ * The maximum allowed command string length (70), plus two to make room for
+ * new line and terminating NULL character.
+ */
+#define MAX_COMMAND_SIZE 72
 
-/* five plus one for the first parameter, the command itself */
+/*
+ * The maximum number of command arguments (5), plus one for the command itself.
+ */
 #define MAX_NO_ARGS 6
 
 /* registers a signal handler */
