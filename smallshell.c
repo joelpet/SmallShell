@@ -28,7 +28,6 @@
 void register_sighandler(int signal_code, void (*handler)(int, siginfo_t*, void*)) {
     int return_value;
     struct sigaction signal_parameters;
-    /*signal_parameters.sa_handler = handler; */
     signal_parameters.sa_sigaction = handler; 
     sigemptyset( &signal_parameters.sa_mask );
     signal_parameters.sa_flags = SA_SIGINFO;
@@ -45,7 +44,20 @@ void print_exit_msg(pid_t child_pid) {
 
 /* this function is called when SIGCHLD is received */
 void signal_handler(int signal_code, siginfo_t* siginfo, void* ucontext) {
-    print_exit_msg(siginfo->si_pid);
+    int status;
+    pid_t child_pid = waitpid(siginfo->si_pid, &status, WNOHANG);
+
+    /*
+     * We can end up here in case of SIGCHLD from a foreground OR background
+     * process. When a fg process signals SIGCHLD, we have already waited for
+     * it, which will cause waitpid(2) to return -1, so we simply ignore that
+     * case. When a bg process signals SIGCHLD we have to make sure that it has
+     * really changed state, that is, waitpid(2) returns the process ID of the
+     * child.
+     */
+    if (child_pid == siginfo->si_pid) {
+        print_exit_msg(siginfo->si_pid);
+    }
 }
 
 /* main function, handles main program flow */
@@ -213,7 +225,7 @@ int main () {
         } else { /* background process execution */
             child_pid = fork();
             if (child_pid == 0) {
-                /* ignore sig-interrupt in child (Ctrl-C) */
+                /* unignore sig-interrupt in child (Ctrl-C) */
                 signal(SIGINT,SIG_DFL);
                 
                 /* execute command with specified arguments */
